@@ -7,7 +7,7 @@ J'aime bien:
 - Les pates aux tomates cerises
 - Le skateboard
 - Le graffiti
-- Les rogues-likes [checkez Lost Cavern ;](ttps://github.com/S01den/Lost_CavernRL)
+- Les rogues-likes [checkez Lost Cavern](https://github.com/S01den/Lost_CavernRL)
 
 J'aime pas:
 - Ce à quoi ressemble le monde du hacking aujourd'hui, capitaliste et dépolitisé en apparence
