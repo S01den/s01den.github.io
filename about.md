@@ -1,15 +1,19 @@
 ###À propos
-Juste quelqu'un (trop ?) passionné par des passes temps surement inutiles.
-Ici j'écris sur ce que j'ai envie, du hardware hacking au reverse engineering en passant par des petits write-up de challenges que je résous par-ci par-là
+Juste quelqu'un de (trop ?) passionné par des passes temps souvent inutiles.
+Ici j'écris sur ce que j'ai envie, du hardware hacking au reverse engineering en passant par des petits write-up de challenges que je résous par-ci par-là.
+
 J'aime bien:
 - Les CTF
-- Le reverse engineering
-- Les casses-têtes
 - Les pates aux tomates cerises
+- Le skateboard
+- Le graffiti
+- Les rogues-likes (checkez Lost Cavern ;)[https://github.com/S01den/Lost_CavernRL]
 
 J'aime pas:
-- Ce à quoi ressemble le monde du hacking aujourd'hui, capitaliste et dépolitisé en apparence...
+- Ce à quoi ressemble le monde du hacking aujourd'hui, capitaliste et dépolitisé en apparence
+- La stéga
+- Le café
 
-
-@s01den
+Si vous voulez parler:
 S01den@protonmail.com
+@s01den
