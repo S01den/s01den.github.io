@@ -7,7 +7,7 @@ J'aime bien:
 - Les pates aux tomates cerises
 - Le skateboard
 - Le graffiti
-- Les rogues-likes (checkez Lost Cavern ;)[https://github.com/S01den/Lost_CavernRL]
+- Les rogues-likes [checkez Lost Cavern ;](ttps://github.com/S01den/Lost_CavernRL)
 
 J'aime pas:
 - Ce à quoi ressemble le monde du hacking aujourd'hui, capitaliste et dépolitisé en apparence
@@ -15,5 +15,5 @@ J'aime pas:
 - Le café
 
 Si vous voulez parler:
-@s01den[https://twitter.com/s01den]
+[@s01den](https://twitter.com/s01den)
 S01den@protonmail.com
