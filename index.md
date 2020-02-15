@@ -12,7 +12,7 @@
         \/    \/    \/                  \/                   \/     
         
 
-# - [Articles](https://s01den.github.io/articles)
-# - [Link list](https://s01den.github.io/links)
-# - [About](https://s01den.github.io/about)
+## - [Articles](https://s01den.github.io/articles)
+## - [Link list](https://s01den.github.io/links)
+## - [About](https://s01den.github.io/about)
 
