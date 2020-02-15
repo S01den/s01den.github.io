@@ -1,8 +1,8 @@
-### LINK LIST !
+# LINK LIST !
 
 Quelques liens intéressants, à propos de domaines variés.
 
-# REVERSE ENGINEERING:
+### REVERSE ENGINEERING:
 - (http://softice1.free.fr/docs/millenium.html)
 - (http://acrigs.com/FRAVIA/advanced.htm)
 - (http://deamonftp.free.fr/deamoncrack/Pages/cours12.htm)
@@ -18,7 +18,7 @@ Quelques liens intéressants, à propos de domaines variés.
 - (https://www.evilsocket.net/2017/04/27/Android-Applications-Reversing-101/)
 
 
-# HACKING
+### HACKING
 - (https://www.newbiecontest.org/index.php)
 - (https://www.dailysecurity.fr/les-vers-xss/)
 - (http://www.madchat.fr/)
@@ -51,7 +51,7 @@ Quelques liens intéressants, à propos de domaines variés.
 - (https://medium.com/@int0x33)
 - (https://ctf.harrisongreen.me/2019/hxpctf/flag_concat/)
 
-# HARDWARE
+### HARDWARE
 - (http://www.sonelec-musique.com)
 - (http://furrtek.free.fr/)
 - (http://taz.newffr.com/TAZ/Miscellanous/Cours_Electronique_Base.pdf)
@@ -68,7 +68,7 @@ Quelques liens intéressants, à propos de domaines variés.
 - (http://konukoii.com/blog/)
 
 
-# PROGRAMMATION
+### PROGRAMMATION
 - (https://github.com/cfenollosa/os-tutorial)
 - (http://www.flipcode.com/archives/The_Art_of_Demomaking-Issue_01_Prologue.shtml)
 - (http://lodev.org/cgtutor/raycasting.html#The_Basic_Idea)
@@ -83,7 +83,7 @@ Quelques liens intéressants, à propos de domaines variés.
 - (https://h0mbre.github.io/Learn-C-By-Creating-A-Rootkit/#)
 
 
-# POLITIQUE
+### POLITIQUE
 - (http://faqanarchiste.free.fr)
 - (http://archivesautonomies.org)
 - (https://rugir.fr)
@@ -91,7 +91,7 @@ Quelques liens intéressants, à propos de domaines variés.
 - (https://theanarchistlibrary.org/)
 
 
-# AUTRE
+### AUTRE
 - (https://www.palkeo.com/thoughts/nerds.html)
 - (https://zestedesavoir.com/tutoriels/479/apprendre-un-jeu-de-strategie/)
 - (https://zestedesavoir.com/tutoriels/451/la-lateralisation-cerebrale/)
