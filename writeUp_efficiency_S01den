@@ -1,0 +1,147 @@
+______________________________________________
+[                                              ]
+[   WRITE-UP DU CRACKME "Efficiency" DE SIben  ]
+[                                              ]
+[  Par S01den             				       ]
+[                                              ]
+[  S01den@protonmail.com                       ]
+[_________________________________07/10/2019___]
+
+
+
+Hello ! 
+Aujourd'hui on se penche sur l'un des challenges de qualification pour la SIGSEGv2.
+Malheureusement, c'est un evenement auquel je ne pourrai pas participer puisque les mineurs ne sont pas autorisés pour raison d'assurances.
+Cependant je ne peux jamais resister à l'envie de flag un challenge de reverse, alors voilà !
+
+ÉTAPE 1: Static analysis is awesome...
+Lorsque l'on lance le binaire, il nous indique "Please enter the password:", sans aucun output après avoir entré un mot de passe.
+Ok, on regarde les propriétés principales du fichier:
+
+solden@solden:~/crackmes$ file efficiency_fixed 
+efficiency_fixed: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, BuildID[sha1]=67589639b035156448396d9b94d9f5f0c6096729, for GNU/Linux 3.2.0, stripped
+
+On est donc sur un ELF 64 bits stripped, c'est à dire que les informations de debugging sont absentes du binaire.
+Maintenant, on le décompile avec IDA. 
+
+En regardant la tronche du graphe du code desassemblé et du pseudo-code, on peut remarquer qu'on a probablement affaire à une VM à reverser.
+Voilà les parties les plus intéressantes (avec les variables nommées par votre serviteur !):
+
+
+
+
+ETAPE 2: But dynamic analysis can help !
+
+Bon, l'analyse statique c'est sympa (surtout grace au pseudocode généré par IDA) mais pour gagner du temps on va pas s'embeter à réimplémenter toute la VM.
+
+Le truc, c'est de poser des breakpoints à des endroits stratégiques pour récuperer des infos utiles.
+Pour commencer, on pose un breakpoint en 0x555555555445 (cmp eax,0x789abcde), ce qui correspond à l'adresse de la première instruction de comparaison des opcodes de la VM.
+En breakant à cet endroit, on récuperera donc dans le registre eax l'opcode qui sera executé.
+
+Une fois cela fait, on lance le binaire dans le debugger en entrant premièrement comme mot de passe "AAAA" par exemple et on relève les opcodes executés.
+On obtient ceci: 
+[0x23456789,0x6789abcd,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0xcdef0123,0x789abcde,0xdef01234,0xbcdef012,0xabcdef01]
+
+Maintenant en entrant comme mot de passe ce qu'on connait du flag ("sigsegv{"), on obtient ceci:
+
+[0x23456789,0x6789abcd,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0x23456789,0xcdef0123,0x789abcde,0xdef01234,0xcdef0123,0x789abcde,0xdef01234,0xcdef0123,0x789abcde,0xdef01234,0xbcdef012,0xabcdef01]
+On peut voir que plus d'instructions ont été executé, ce qui nous indique que nous somme sur la bonne voie.
+En ayant réimplémenté la VM on aurait pu écrire un bruteforcer qui utilise le nombre d'instructions executées par la machine virtuelle, mais là on va faire autrement.
+
+On peut observer que les deux séries d'opcodes se terminent par [0xbcdef012,0xabcdef01], précédées par un groupe d'un (dans le cas du 'AAAA') ou plusieurs (dans le cas du 'sigsegv{') 
+[0xcdef0123,0x789abcde,0xdef01234]
+
+En se référant au pseudo code d'IDA, on voit que ces opcodes correspondent respéctivement aux instructions: 
+sub_12C6(&passwordArray[register2], &passwordArray[register1]);
+cmp_pass_x__Reg3(&passwordArray[register2], &passwordArray[register1]);
+ContinueIfcheck(3 * (register2 - 1));
+
+On a donc une transformation opérée sur une partie du pass (4 octets par 4 octets) par la fonction sub_12C6(), puis cette partie ainsi transformée est alors comparée à une valeur via la fonction que j'ai nommé "cmp_pass_x__Reg3" et qui agit sur "byte_5068". Enfin, la fonction ContinueIfCheck est appelée et va checker le "byte_5068" pour savoir si la comparaison effectuée précédement est correcte ou non et continuer ou arreter l'execution du binaire selon le résultat. Si la comparaison est fausse, la VM execute les opcodes de fin, à savoir [0xbcdef012,0xabcdef01].
+
+Cependant dans cette fonction il y des instructions "DIV RCX" en 0x555555555317 et 0x555555555338. Or, en regardant un peu, on s'apperçoit que la valeur de RCX change à chaque nouvelle partie du pass comparée. En breakant et en les relevant on obtient: arrayMod = [0x77c7742d, 0x7d61e32d, 0x7b4dbc19, 0x62c26e5f, 0x686493f7]
+
+Maintenant, on veut récupérer les valeurs auxquelles nos parties de pass transformée par sub_12C6() sont comparées.
+Pour cela nous allons simplement placer un breakpoint en 0x55555555526e (cmp edx,eax), executer en relever le contenu de eax.
+Pour continuer l'execution de la VM et ainsi executer les comparaisons des autres parties du flag malgré un pass totalement faux, il suffit d'entrer "set $rdx = $rax" dans gdb à chaque fois que l'on break ici.
+
+On finit par obtenir ceci: arrayFlag = [0x31420fa, 0x2b74da6b, 0x638682bf, 0x5941d721, 0x5ced41bb]
+
+Nous avons maintenant tout ce qu'il faut pour écrire un script qui nous donnera gentiment le flag ;)
+
+
+ETAPE 3: Get the flag !
+
+On connait déjà la première partie du flag: sigsegv{
+De plus on sait grace aux arguments passés à read() dans la fonction main() que le pass fait 20 caractères, on a donc finalement un flag de la forme: sigsegv{ABCDEFGHIJK}.
+
+Juste avant on avait vu que l'input est traité par groupes de 4 octets (appelés dans mon script "codon", #bac_S_SVT_rpz) par la fonction sub_12C6(), executé dans la VM par l'opcode 0xCDEF0123.
+
+Dans la fonction de comparaison on avait également trouvé que nos codons, ainsi transformés par la fonction sub_12C6(), sont comparés avec 0x31420fa, 0x2b74da6b,
+0x638682bf, 0x5941d721 et enfin 0x5ced41bb
+
+L'idée, c'est de réécrire la fonction sub_12c6() pour bruteforcer les codons du flag dont on ne dispose pas. 
+En effet, on possède déjà les deux premiers codons ('sigs' et 'egv{') et le caractère final du dernier codon ('}'), on doit donc bruteforcer 2 groupes de 4 octets + 1 groupe
+de 3 octets.
+
+Ainsi, le bruteforce ne devrait pas être trop long ;)
+
+
+--------------------------------- CUT HERE ---------------------------------
+#flag = sigsegv{VM3d_stuff!}
+
+def convert_to_ascii(text):
+    return sum(ord(text[byte])<<8*(len(text)-byte-1) for byte in range(len(text)))
+
+def bruteforce(password,codon):
+	arrayMod = [0x77c7742d, 0x7d61e32d, 0x7b4dbc19, 0x62c26e5f, 0x686493f7]
+	arrayFlag = [0x31420fa, 0x2b74da6b, 0x638682bf, 0x5941d721, 0x5ced41bb]
+	v5 = 1
+	v4 = 0x10001 # trouvée grace à l'analyse dynamique
+					
+	a1 = 1
+	passHex = ""
+
+	for i in range(4*a1):
+		passHex += password[i]
+	v3 = convert_to_ascii(passHex)
+	
+	while(v4):
+		if(v4 & 1):
+			v5 = (v3 * v5) % arrayMod[codon]
+		v4 >>= 1
+		v3 = v3 * v3 % arrayMod[codon]
+		if(v5 == arrayFlag[codon]):
+			print("FOUND ! "+str(password))
+			return 1
+	return 0
+
+def main():
+
+	found = 0
+	codon = 2
+
+	while codon < 5:
+		for a in range(0x20,0x7f):
+			for b in range(0x20,0x7f):
+				for c in range(0x20,0x7f):
+					if(codon == 4):
+						password = chr(a)+chr(b)+chr(c)+'}'
+						#print(password)
+						found = bruteforce(password,codon)
+						if(found):
+							return 1
+					else:
+						for d in range(0x20,0x7f):
+							password = chr(a)+chr(b)+chr(c)+chr(d)
+							#print(password)
+							found = bruteforce(password,codon)
+							if(found):
+								return 1							  
+		codon+=1
+
+	return 0
+
+main()
+--------------------------------- CUT HERE ---------------------------------
+
+En executant ce petit script, nous obtenons comme flag final: "sigsegv{VM3d_stuff!}", ce qui nous rapporte 1337 points sur le site des qualifications !
