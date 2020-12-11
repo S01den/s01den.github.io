@@ -12,14 +12,6 @@ html { background-color: black;
 	background-repeat: repeat-x;
 }
 
-header{
-	background-color: transparent;
-	margin: 0;
-	padding: 0;
-	overflow: hidden;
-
-}
-
 article{
 	background: black;
 	margin: 10%;
@@ -29,39 +21,10 @@ article{
 
 }
 body{
-
+	font-size: 3em;
 	color: white;
 	margin: 0;
 	padding: 0;
-}
-
-h1{
-	position: absolute;
-	top: 150px;
-	text-align: center;
-	color: white;
-	font-size: 6em;
-	font-family: LadyRadical;
-	text-decoration: underline;
-	text-decoration-color: lightgray;
-	margin: 30%;
-	margin-top: 10%;
-}
-
-h2{
-	position: relative;
-	text-align: center;
-	color: white;
-	text-indent: 1em;
-	font-size: 3em;
-	font-family: LadyRadical;
-	text-decoration: underline;
-	text-decoration-color: lightgray;
-	margin-top: 1em;
-}
-
-h2::first-letter,h1::first-letter{
-	color: red;
 }
 
 pre.hr{
