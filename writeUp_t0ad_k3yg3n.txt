@@ -1,0 +1,287 @@
+ ______________________________________________
+[                                              ]
+[   KEYGEN DU KEYGENME "t0ad_k3yg3n" DE        ]
+[            jockcranley	               ]
+[                                              ]
+[     PAR S01den                               ]
+[                                              ]
+[                                              ]
+[_________________________________29/04/2018___]
+
+
+Bon ! Allez je me lance, ceci est mon premier write up !
+
+Alors on va commencer par quelque chose de simple, un petit crackme venant de crackmes.one
+On va reverse le keygen me "t0ad_k3yg3n" de jockcranley.
+
+Ok alors on va avoir besoin de:
+ 
+ - Un debugger (j'utiliserai ici ollydbg)
+ - Un editeur de texte
+ - Un compilateur ou interpreteur selon votre langage de programmation préféré (Brainfuck ?!)
+ - Un demi-cerveau 
+ - Un peu de musique ! (Stupeflip, squarepusher, tagada jones... Vous choisissez !)
+ 
+ 
+C'est bon ? On commence ?
+Let's go !
+
+On ouvre le crackme dans ollydbg.
+On l'execute une première fois:
+
+< T0AD K3YG3N >
+Username:
+
+Ok, j'ai pour habitude d'entrer 'A' la première fois que je lance un keygenme, essayons:
+
+Access Denied.
+
+Mince :(
+
+Qu'est-ce qui s'est passé ?
+Dans olly on voit "Jumps from 0040147E, 0040155F"
+Intéressant.
+On regarde les instructions près de cette adresse, 0040147E; et on trouve une boucle:
+
+0040146D  |> 8D5424 23      /LEA EDX,DWORD PTR SS:[ESP+23]
+00401471  |. 8B4424 38      |MOV EAX,DWORD PTR SS:[ESP+38]
+00401475  |. 01D0           |ADD EAX,EDX
+00401477  |. 0FB600         |MOVZX EAX,BYTE PTR DS:[EAX]
+0040147A  |. 3C 20          |CMP AL,20
+0040147C  |. 75 05          |JNZ SHORT toadkey3.00401483
+0040147E  |. E9 0B010000    |JMP toadkey3.0040158E
+00401483  |> 834424 38 01   |ADD DWORD PTR SS:[ESP+38],1
+00401488  |> 837C24 38 08    CMP DWORD PTR SS:[ESP+38],8             
+0040148D  |.^7E DE          \JLE SHORT toadkey3.0040146D          
+
+Décortiquons cette routine avec A pour username:
+
+0040146D  |> 8D5424 23      /LEA EDX,DWORD PTR SS:[ESP+23]
+00401471  |. 8B4424 38      |MOV EAX,DWORD PTR SS:[ESP+38]
+00401475  |. 01D0           |ADD EAX,EDX
+00401477  |. 0FB600         |MOVZX EAX,BYTE PTR DS:[EAX]
+
+on récupère 'A', ayant 41 pour valeur ASCII en hexadecimal
+
+
+
+0040147A  |. 3C 20          |CMP AL,20
+
+On compare la valeur ASCII récuperée à 20 (ce qui correspond à un espace)
+
+
+
+0040147C  |. 75 05          |JNZ SHORT toadkey3.00401483
+
+Evidemment 41 != 20 donc on saute à 00401483
+
+
+
+00401483  |> 834424 38 01   |ADD DWORD PTR SS:[ESP+38],1
+00401488  |> 837C24 38 08    CMP DWORD PTR SS:[ESP+38],8
+
+On ajoute 1 à [ESP+38] puis on regarde si [ESP+38] est egal à 8
+Si c'est pas le cas, on recommence la boucle; sinon on continue l'execution du prog.
+
+Dans notre cas, ce n'est pas egal à 8, donc on saute au début de la boucle, mais on récupère un espace cette fois (0x20) et non un 'A'
+Donc: 
+
+0040147A  |. 3C 20          |CMP AL,20
+0040147C  |. 75 05          |JNZ SHORT toadkey3.00401483
+
+JNZ n'est pas executé, et on passe à l'instruction d'après, qui est:
+
+0040147E  |. E9 0B010000    |JMP toadkey3.0040158E
+
+Cette instruction nous amène à "Access Denied.".
+
+Donc on en déduit quoi ?
+Hé bien en réfléchissant 2s avec notre demi-cerveau, on comprends qu'il faut que l'username fasse au moins 8 caractères.
+
+Donc on relance le prog dans gdb avec "AAAAAAAA" (8 A) comme username et on voit que cette fois on nous demande un password:
+
+< T0AD K3YG3N >
+Username: AAAAAAAA
+Password:
+
+Bien, on a presque fini (oui, c'est facile).
+
+On voit un fgets en 04014C0, ce qui est en C une instruction pour récuperer une entrée (le crackme est codé en C ou C++)
+On pose des breakpoints en dessous de ce fgets (jusqu'au début de la boucle qui commence en 004014EF)
+
+004014C5  |. 0FB64424 24    MOVZX EAX,BYTE PTR SS:[ESP+24]
+004014CA  |. 66:0FBED0      MOVSX DX,AL
+004014CE  |. 6BD2 56        IMUL EDX,EDX,56
+004014D1  |. 66:C1EA 08     SHR DX,8
+004014D5  |. C0F8 07        SAR AL,7
+004014D8  |. 89D3           MOV EBX,EDX                             
+004014DA  |. 29C3           SUB EBX,EAX
+004014DC  |. 89D8           MOV EAX,EBX
+004014DE  |. 0FBEC0         MOVSX EAX,AL
+004014E1  |. 894424 3C      MOV DWORD PTR SS:[ESP+3C],EAX            
+004014E5  |. C74424 34 0000>MOV DWORD PTR SS:[ESP+34],0
+
+
+
+En password on entre BBBBBBBB pour voir et on tombe sur le breakpoint en 004014C5.
+
+Qu'est ce qu'on voit ? 
+Que "MOVZX EAX,BYTE PTR SS:[ESP+24]" met la valeur ASCII en hexadecimal du second caractère (trouvé après en testant avec l'username "WIZARDOS", cette instruction récuperait le "I") 
+de l'username (41 pour A en l'occurence)
+
+Ensuite, cette valeur est déplacée dans EDX ("MOVSX DX,AL") multipliée par 56 (dans "IMUL EDX,EDX,56")
+ce qui nous donne 0x15D6.
+
+Puis ce 0x15D6 subit un décalage de 8 bits vers la droite (SHR DX,8). 4 bits = 1 chiffre hexadecimal, donc 2*4 bits = 2 chiffres hexa qu'on décale vers la droite;
+Ce qui laisse 0x15 
+
+Explication: 0x15D6 = 1010111010110 en binaire.
+1010111010110 avec un décalage de 8 bits vers la droite = 10101 | 11010110
+On enlève les 8 bits les plus à droite en gros; ce qui nous laisse 10101, soit 15 en hexa.
+Compris ?
+Bien on passe à la suite.
+
+Avec SAR AL,7 on supprime le reste.
+
+Les instructions suivantes ne sont pas vraiment utiles.
+
+On continue à executer le programme instructions par instructions en faisant F8 et on rentre dans une boucle
+
+004014EF  |> 8D5424 23      /LEA EDX,DWORD PTR SS:[ESP+23]
+004014F3  |. 8B4424 34      |MOV EAX,DWORD PTR SS:[ESP+34]
+004014F7  |. 01D0           |ADD EAX,EDX
+004014F9  |. 0FB600         |MOVZX EAX,BYTE PTR DS:[EAX]
+004014FC  |. 0FBEC0         |MOVSX EAX,AL
+004014FF  |. 334424 3C      |XOR EAX,DWORD PTR SS:[ESP+3C]           
+00401503  |. 83E0 3C        |AND EAX,3C
+00401506  |. 894424 2C      |MOV DWORD PTR SS:[ESP+2C],EAX
+0040150A  |. 8B4424 2C      |MOV EAX,DWORD PTR SS:[ESP+2C]
+0040150E  |. 83C0 30        |ADD EAX,30
+00401511  |. 8D4C24 11      |LEA ECX,DWORD PTR SS:[ESP+11]
+00401515  |. 8B5424 34      |MOV EDX,DWORD PTR SS:[ESP+34]
+00401519  |. 01CA           |ADD EDX,ECX
+0040151B  |. 8802           |MOV BYTE PTR DS:[EDX],AL
+0040151D  |. 8B5424 2C      |MOV EDX,DWORD PTR SS:[ESP+2C]
+00401521  |. 89D0           |MOV EAX,EDX
+00401523  |. 01C0           |ADD EAX,EAX                             
+00401525  |. 01D0           |ADD EAX,EDX
+00401527  |. 894424 3C      |MOV DWORD PTR SS:[ESP+3C],EAX           
+0040152B  |. 834424 34 01   |ADD DWORD PTR SS:[ESP+34],1
+00401530  |> 837C24 34 08    CMP DWORD PTR SS:[ESP+34],8
+00401535  |.^7E B8          \JLE SHORT toadkey3.004014EF
+
+Hum. Ok.
+Vous vous souvenez du 0x15 qu'on avait trouvé avec SHR et tout le merdier ? Ben on va appeler ça "la clée".
+On voit qu'à "XOR EAX,DWORD PTR SS:[ESP+3C]" la valeur ASCII du permier caractère subit un xor avec la clé;
+On obtient donc 0x41 xor 0x15, ce qui donne 0x54
+
+Ce 0x54 subit ensuite un "And" avec 0x3C
+
+0x54 & 0x3C = 0x14
+
+Ok, on passe les 2 MOV et on tombe sur ADD EAX,30
+
+notre 0x14 va être additionné avec 0x30 
+
+0x14 + 0x30 = 0x44 
+
+On passe quelques instructions pour arriver à "0040151B MOV BYTE PTR DS:[EDX],AL"
+En bas on voit "AL=44 ('D')"
+Intéressant.
+
+On continue, à l'instruction suivante "0040151D MOV EDX,DWORD PTR SS:[ESP+2C]" on tombe sur "EDX=0061FF01, (ASCII "D        BBBBBBBB")"
+Oh notre D et des espaces sont concatenés avec notre pass
+
+Next
+On tombe sur "00401521  MOV EAX,EDX"
+Avec EAX=0x44 (notre 'D') et EDX=0x14 (La valeur de EAX avant le ADD EAX,30 plus haut)
+
+Puis 	00401523 ADD EAX,EAX                             
+		00401525 ADD EAX,EDX
+		
+		où l'on remarque que ce 0x14 est multiplié par 3 (0x14 + 0x14 + 0x14)
+		
+Ce qui donne 0x3C
+
+0040152B  |. 834424 34 01   |ADD DWORD PTR SS:[ESP+34],1
+00401530  |> 837C24 34 08    CMP DWORD PTR SS:[ESP+34],8
+00401535  |.^7E B8          \JLE SHORT toadkey3.004014EF
+
+Comme pour un peu plus haut, la boucle est executée 8 fois:
+on a une variable qui s'incrémente de 1 à chaque fois, c'est comparé à 8 et on recommence la boucle si c'est à moins de 8
+
+Cela ressemble à une boucle for vous ne trouvez pas ?
+
+On recommence donc la boucle, mais cette fois, le 2ème caractère n'est pas xoré avec 0x15, mais avec 0x3C; ce qui est la valeur qu'on avait trouvé avant en multipliant 0x14 par 3
+
+On a tout pour programmer cette boucle et la clé!
+
+Ce qui donnerait, en C++, un truc du genre:
+
+------------------------------------------------
+int cle = (int)user[1] * 0x56; // IMUL EDX,EDX,56
+int incrementVar = 0; 
+
+cle = cle >> 8; // SHR DX,8
+	
+for(int i =0; i <= user.length(); i++)
+{
+    pass[i] = user[i] xor cle; // XOR EAX,DWORD PTR SS:[ESP+3C]
+
+    pass[i] = pass[i] & 0x3C; // AND EAX,3C
+    incrementVar = (int)pass[i]; // On stocke la valeur de pass[i] avant qu'elle soit additionnée avec 0x30 avec la prochaine instruction
+
+    pass[i] += 0x30; // ADD EAX,30
+
+    incrementVar*=3; // On multiplie par 3 la valeur avant l'addition par 0x30, qu'on avait stocké dans la variable incrementVar
+    cle = incrementVar; // pour xorer avec la valeur précédement calculée, on la stocke dans la variable "cle"
+    cout << pass[i] << endl;
+}
+-------------------------------------------------
+
+En continuant l'execution de la boucle dans ollydbg, on trouve au final "DldLDldLDBBBBBBBB" (les 'B' ne nous interessent pas)
+Avec notre programme on trouve "DldLDldLD" pour l'username "AAAAAAAA"
+
+Bon maintenant on continue dans olly, on tombe dans une dernière boucle avant le "Access Granted." ou "Access Denied.":
+
+00401541  |> 8D5424 11      /LEA EDX,DWORD PTR SS:[ESP+11]
+00401545  |. 8B4424 30      |MOV EAX,DWORD PTR SS:[ESP+30]
+00401549  |. 01D0           |ADD EAX,EDX
+0040154B  |. 0FB610         |MOVZX EDX,BYTE PTR DS:[EAX]
+0040154E  |. 8D4C24 1A      |LEA ECX,DWORD PTR SS:[ESP+1A]
+00401552  |. 8B4424 30      |MOV EAX,DWORD PTR SS:[ESP+30]
+00401556  |. 01C8           |ADD EAX,ECX
+00401558  |. 0FB600         |MOVZX EAX,BYTE PTR DS:[EAX]
+0040155B  |. 38C2           |CMP DL,AL
+0040155D  |. 74 02          |JE SHORT toadkey3.00401561
+0040155F  |. EB 2D          |JMP SHORT toadkey3.0040158E
+00401561  |> 834424 30 01   |ADD DWORD PTR SS:[ESP+30],1
+00401566  |> 8B5C24 30       MOV EBX,DWORD PTR SS:[ESP+30]           ; ||
+0040156A  |. 8D4424 1A      |LEA EAX,DWORD PTR SS:[ESP+1A]           ; ||
+0040156E  |. 890424         |MOV DWORD PTR SS:[ESP],EAX              ; ||
+00401571  |. E8 7A6B0000    |CALL <JMP.&msvcrt.strlen>               ; |\strlen
+00401576  |. 39C3           |CMP EBX,EAX                             ; |
+00401578  |.^72 C7          \JB SHORT toadkey3.00401541              ; |
+0040157A  |. 90             NOP                                      ; |
+0040157B  |. C70424 99A0400>MOV DWORD PTR SS:[ESP],toadkey3.0040A099 ; |ASCII "Access Granted."
+00401582  |. E8 496B0000    CALL <JMP.&msvcrt.puts>                  ; \puts
+00401587  |. B8 00000000    MOV EAX,0
+0040158C  |. EB 11          JMP SHORT toadkey3.0040159F
+0040158E  |> C70424 8AA0400>MOV DWORD PTR SS:[ESP],toadkey3.0040A08A ; |ASCII "Access Denied."
+00401595  |. E8 366B0000    CALL <JMP.&msvcrt.puts>                  ; \puts
+
+
+En executant petit à petit, on voit que le premier caractère de la chaine trouvée avec la boucle précédente (Ou notre programme ^^)
+est comparé au premier caractère du password qu'on a entré
+
+Dans "CMP DL,AL" on a donc DL='D' et AL='B'
+
+Evidemment D!=B donc JE SHORT toadkey3.00401561 n'est pas executé et on tombe sur JMP SHORT toadkey3.0040158E qui nous fait sauter à "Access Denied.".
+
+On comprend donc que la chaine qui est calculée dans la boucle précédente (donc dans notre programme) est le pass qui correspond à l'user entré !
+
+Pour confirmer on relance le programme avec "AAAAAAAA" pour username et "DldLDldLD" pour password et on trouve bien un "Access Granted." !
+
+Le pass qui correspond à l'user "AAAAAAAA" est donc bien "DldLDldLD", on a keygené le programme !
+
+Et voilà ! Si tu veux me dire ce que tu en penses, m'insulter ou corriger des trucs, tu peux me contacter par mail à S01den@protonmail.com

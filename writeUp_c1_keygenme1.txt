@@ -1,0 +1,262 @@
+______________________________________________
+[                                              ]
+[   WRITE UP DU CRACKME "c1_keygenme1" de c1   ]
+[                                              ]
+[  Par S01den             				       ]
+[                                              ]
+[  S01den@protonmail.com                       ]
+[_________________________________17/03/2019___]
+
+
+Salut, cher reverser en herbe.
+Ajourd'hui nous allons résoudre un keygen-me, le c1_keygenme1 de c1 (https://crackmes.one/crackme/5c2335c033c5d41e58e00625)
+
+---------------------------------------------------------------------------------------
+Author:
+c1
+
+Language:
+C/C++
+
+Upload:
+ 8:03 AM 12/26/2018
+
+Level:
+2         // C'est un crackme classé parmi les faciles; Cependant, j'aurais mis la difficulté à 3
+
+Platform
+Unix/linux etc.
+
+Description
+
+A easy keygenme, patching not allowed. Have fun!
+---------------------------------------------------------------------------------------
+
+LA FLEMME DE LIRE ? LE CODE SOURCE DU KEYGEN EST DANS L'ARCHIVE...
+
+CURIEUX ? LIS LA SUITE
+
+Avant tout, comme d'habitude nous allons nous lancer de la musique histoire de se chauffer [https://www.youtube.com/watch?v=n1JiNg3XHxA (RIP Keith Flint)]
+
+C'est bon ? GOOOOOOOOOOOO !
+
+Alors on ouvre avec radare2 et on désassemble:
+
+____________________________________________________________________________________________________
+solden@solden:~/crackmes$ r2 keygenme1
+[0x000010e0]> ie
+[Entrypoints]
+vaddr=0x000010e0 paddr=0x000010e0 baddr=0x00000000 laddr=0x00000000 haddr=0x00000018 type=program
+
+1 entrypoints
+
+[0x000010e0]> pd 500@0x10e0
+_____________________________________________________________________________________________________
+
+Peu après le second call vers fgets (quand le programme récupère la license key) on voit un "call 0x1371".
+Dans cette routine on peut observer un appel à strrchr avec comme argument la license key et un '-'; puis un strtoul.
+"The strrchr() function returns a pointer to the last occurrence of the character c in the string s."
+
+---------------------------------------------------------------------------------------
+            0x00001386      6a2d           push 0x2d                   ; '-' ; 45
+            0x00001388      ff7508         push dword [ebp + 8]
+            0x0000138b      e820fdffff     call sym.imp.strrchr
+---------------------------------------------------------------------------------------
+
+Ok donc c'est utilisé pour couper la license key en deux parties, séparées par un tiret.
+Si il n'y a pas de tiret, on se mange un "Invalid license key or username".
+La seconde partie du partie de la license key et ensuite convertie en unsigned long grace à strtoul.
+		
+Au retour de la routine, on voit
+
+---------------------------------------------------------------------------------------
+ 										   call sym.imp.strlen
+            0x0000150b      83c410         add esp, 0x10
+            0x0000150e      8945e4         mov dword [ebp - 0x1c], eax
+            0x00001511      837de840       cmp dword [ebp - 0x18], 0x40 ; [0x40:4]=52 ; '@' ; 64
+            0x00001515      0f853c010000   jne 0x1657
+---------------------------------------------------------------------------------------
+
+En debuggant, on voit que c'est la première partie de la license key qui est envoyée à strlen.
+On voit que la première partie du pass doit faire 64 caractères, sinon on prend le message d'erreur.
+
+Ensuite, jusqu'en 0x00001591, on a diverses opérations permettant de convertir la première partie de notre pass
+en nombre (exemple: avec "0100111" on a 0x0100111)
+
+À partir de là, on tombe sur une routine qui prend en argument l'username et qui sort un unsigned long.
+Voici la partie intéressante de la routine:
+
+       :|   0x00001244      c1e808         shr eax, 8
+       :|   0x00001247      89c3           mov ebx, eax
+       :|   0x00001249      8b4df0         mov ecx, dword [ebp - 0x10]
+       :|   0x0000124c      8b45f4         mov eax, dword [ebp - 0xc]
+       :|   0x0000124f      01c8           add eax, ecx
+       :|   0x00001251      0fb600         movzx eax, byte [eax]
+       :|   0x00001254      0fb6c0         movzx eax, al
+       :|   0x00001257      3345f8         xor eax, dword [ebp - 8]
+       :|   0x0000125a      0fb6c0         movzx eax, al
+       :|   0x0000125d      8b848260e5ff.  mov eax, dword [edx + eax*4 - 0x1aa0]
+       :|   0x00001264      31d8           xor eax, ebx
+       :|   0x00001266      8945f8         mov dword [ebp - 8], eax
+       :|   0x00001269      8345f401       add dword [ebp - 0xc], 1
+       :`-> 0x0000126d      8b45f4         mov eax, dword [ebp - 0xc]
+       :    0x00001270      3b450c         cmp eax, dword [ebp + 0xc]  ; [0xc:4]=0 ; 12
+       `==< 0x00001273      72cc           jb 0x1241
+            0x00001275      8b45f8         mov eax, dword [ebp - 8]
+            0x00001278      f7d0           not eax
+
+eax vaut tout d'abord 0xffffffff, puis le resultat de chaque tour de boucle
+
+la ligne "0x0000125d mov eax, dword [edx + eax*4 - 0x1aa0]" sort une valeur parmi un ensemble de valeurs hardcodées, situés à partir de edx-0x1aa0 soit 0x56557560
+
+0x56557560:	0x00000000	0x77073096	0xee0e612c	0x990951ba
+0x56557570:	0x076dc419	0x706af48f	0xe963a535	0x9e6495a3
+0x56557580:	0x0edb8832	0x79dcb8a4	0xe0d5e91e	0x97d2d988
+0x56557590:	0x09b64c2b	0x7eb17cbd	0xe7b82d07	0x90bf1d91
+0x565575a0:	0x1db71064	0x6ab020f2	0xf3b97148	0x84be41de
+0x565575b0:	0x1adad47d	0x6ddde4eb	0xf4d4b551	0x83d385c7
+0x565575c0:	0x136c9856	0x646ba8c0	0xfd62f97a	0x8a65c9ec
+0x565575d0:	0x14015c4f	0x63066cd9	0xfa0f3d63	0x8d080df5
+0x565575e0:	0x3b6e20c8	0x4c69105e	0xd56041e4	0xa2677172
+0x565575f0:	0x3c03e4d1	0x4b04d447	0xd20d85fd	0xa50ab56b
+0x56557600:	0x35b5a8fa	0x42b2986c	0xdbbbc9d6	0xacbcf940
+0x56557610:	0x32d86ce3	0x45df5c75	0xdcd60dcf	0xabd13d59
+0x56557620:	0x26d930ac	0x51de003a	0xc8d75180	0xbfd06116
+0x56557630:	0x21b4f4b5	0x56b3c423	0xcfba9599	0xb8bda50f
+0x56557640:	0x2802b89e	0x5f058808	0xc60cd9b2	0xb10be924
+0x56557650:	0x2f6f7c87	0x58684c11	0xc1611dab	0xb6662d3d
+0x56557660:	0x76dc4190	0x01db7106	0x98d220bc	0xefd5102a
+0x56557670:	0x71b18589	0x06b6b51f	0x9fbfe4a5	0xe8b8d433
+0x56557680:	0x7807c9a2	0x0f00f934	0x9609a88e	0xe10e9818
+
+Cette boucle s'execute strlen(username) fois puis le resultat final prend un "not".
+On peut traduire la routine par 
+
+------------------------------------------------------------------
+	unsigned long xLong = 0xffffff;
+	unsigned int x = 0xff;
+
+	for(i = 0; i < strlen(user); i++)
+	{
+		pos = user[i]^x;
+		code = hardcode[pos] ^ (0x00000000 + xLong);
+		xLong = code>>8;
+		x = (unsigned char)code;
+	}
+	code = ~code
+------------------------------------------------------------------
+
+On s'occupe ensuite de la license key avec cette routine:
+ 
+ _____________________________________________________
+ 0x000015b3   mov eax, 0x1f               ; 31
+ 0x000015b8   sub eax, dword [ebp - 0xc]
+ 0x000015bb   mov dword [ebp - 0x20], eax
+ 0x000015be   lea edx, [ebp - 0x144]
+ 0x000015c4   mov eax, dword [ebp - 0xc]
+ 0x000015c7   add eax, edx
+ 0x000015c9   movzx eax, byte [eax]
+ 0x000015cc   movsx edx, al
+ 0x000015cf   mov eax, dword [ebp - 0x20]
+ 0x000015d2   mov esi, dword [ebp - 0x10]
+ 0x000015d5   mov ecx, eax
+ 0x000015d7   shr esi, cl
+ 0x000015d9   mov eax, esi
+ 0x000015db   xor eax, edx
+ 0x000015dd   and eax, 1
+ 0x000015e0   test eax, eax
+ 0x000015e2   je 0x15e9
+ 0x000015e4   call 0x1343
+________________________________________________________
+
+C'est une boucle qui s'execute 31 fois, elle utilise le nombre trouvé avec la précédente routine.
+On peut la traduire par:
+
+----------------------------------------------------------
+for(i = 0; i <= 31; i++)
+	{
+		pos = 31-i;
+		codeBis = code>>pos;
+		test = (pass[i]^codeBis) & 0x1;
+		if(test != 0)
+		{
+			printf("Invalid license key or username\n");
+			break;
+		}
+	}
+----------------------------------------------------------
+
+Alors, afin de trouver la première partie de la license key, on peut donc faire un leger bruteforce:
+
+-----------------------------------------------------------
+	printf("KEY: ");
+
+	for(i = 0; i <= 31; i++)
+	{
+		pos = 31-i;
+		codeBis = code>>pos;
+		j = 0;
+		test = 1;
+		while(test == 1)
+		{
+			codeBis = (j+0x00)^codeBis;
+			test = codeBis&0x1;
+			if(test == 0)
+			{
+				printf("%02lx",j+0x00);
+			}
+			j++;
+		}
+	}
+-----------------------------------------------------------
+
+C'est bientot fini, il nous manque juste la dernière partie de la license key.
+La dernière partie est très simple, c'est la routine qui nous a permis d'obtenir "code" à partir de l'username.
+Sauf que cette fois ci, la routine est executée 32 fois et avec 0xff comme position initiale dans hardcode[].
+On peut traduire cette dernière partie par:
+
+-----------------------------------------------------------
+	printf("-");
+
+	for(k = 0; k < 32; k++)
+	{
+		shifted = yLong>>8;
+		codeBis = hardcode[y]^shifted;
+		yLong = codeBis;
+		y = (unsigned char)codeBis;
+	}
+	codeBis = ~codeBis-0xffffffff00000000;
+	printf("%lx\n", codeBis);
+-----------------------------------------------------------
+
+Et c'est ainsi que nous avons une license key valide à partir d'un username !
+Par exemple, avec S01den comme user, on a KEY: 0000010001010101000001010000000000010000010100000101010101000001-190a55ad
+On teste, et... Ça marche !
+
+##    ## ######## ##    ##  ######   ######## ##    ##         ##     ## ######## 
+##   ##  ##        ##  ##  ##    ##  ##       ###   ##         ###   ### ##       
+##  ##   ##         ####   ##        ##       ####  ##         #### #### ##       
+#####    ######      ##    ##   #### ######   ## ## ## ####### ## ### ## ######   
+##  ##   ##          ##    ##    ##  ##       ##  ####         ##     ## ##       
+##   ##  ##          ##    ##    ##  ##       ##   ###         ##     ## ##       
+##    ## ########    ##     ######   ######## ##    ##         ##     ## ######## 
+
+########  ##    ##     ######     ##                                              
+##     ##  ##  ##     ##    ##  ####                                              
+##     ##   ####      ##          ##                                              
+########     ##       ##          ##                                              
+##     ##    ##       ##          ##                                              
+##     ##    ##       ##    ##    ##                                              
+########     ##        ######   ######                                            
+
+Please enter your username:
+S01den
+Please enter your license key:
+0000010001010101000001010000000000010000010100000101010101000001-190a55ad
+
+You have entered a valid license key, good job!
+Please write a keygen :)
+
+________________________________________________________________________________________________________________________________________________
+Merci à c1 pour ce keygenme amusant, il sera resté longtemps sans solution. 
+Si tu veux me dire ce que tu en penses, m'insulter ou corriger des trucs, tu peux me contacter par mail à S01den@protonmail.com

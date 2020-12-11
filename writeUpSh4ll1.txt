@@ -1,0 +1,211 @@
+ ______________________________________________
+[                                              ]
+[   WRITE UP DU CRACKME "Sh4ll1" DE            ]
+[            destructeur	               ]
+[                                              ]
+[     PAR S01den                               ]
+[                                              ]
+[_________________________________18/05/2018___]
+
+
+
+
+Bon ! Je m'ennuyais ce soir alors je suis allé voir ce qu'il y avait de nouveau sur crackmes.one;
+j'avais bien envie de faire un peu de RE sous linux, et là je vois quoi ?
+
+
+Sh4ll3 	destructeur 	C/C++ 		Unix/linux etc. 	9:42 PM 05/06/2018 	0 	0
+Sh4ll2 	destructeur 	C/C++ 		Unix/linux etc. 	5:16 PM 05/06/2018 	0 	0
+Sh4ll1 	destructeur 	C/C++ 		Unix/linux etc. 	5:13 PM 05/06/2018 	0 	0
+
+
+Un signe du destin, de la force ou du dieu pastafarien, enfin un truc dans le genre.
+
+Donc je me suis dit "Bon il est un peu tard et tu es fatigué S01den, mais tu vas regarder Sh4ll1 et ecrire 
+un petit writeUp avant d'aller au dodo"
+
+
+C'est chose faite, et c'est ainsi qu'on se retrouve pour mon second writeUp !
+(Ceux pour Sh4ll2 et 3 arriveront plus tard ;)
+
+
+Alors pour le matos:
+
+	- Radare2 (très utile)
+	- Gdb avec peda (très utile aussi)
+	- un quart de cerveau endormi (c'est pas un keygenMe, encore moins besoin de réflechir que la dernière fois !)
+	- de la musique pour se reveiller un peu (là j'écoutais du guns n'roses)
+	- des yeux fonctionnels.
+
+
+Let's go !
+
+On commence par se renseigner sur le crackme grace à la commande "file", ce qui nous donne:
+
+
+file crackMe1.bin 
+crackMe1.bin: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=9a480eb4b1711f12768f5cee5915d3024a8815cc, not stripped
+
+
+Ok, c'est un ELF compilé en 64-bit.
+
+Maintenant on ouvre radare2:
+
+
+r2 crackMe1.bin 
+ -- .-. .- -.. .- .-. . ..---
+[0x000008a0]>
+
+
+Pour info, il y a toujours des petites phrases marrantes quand on lance radare2. Celle ci, une fois décodée donne: "MRADARE2"; ok c'est pas drole pour une fois.
+Bref, regardons les strings:
+
+
+[0x000008a0]> fs strings
+[0x000008a0]> f
+0x00000b85 11 str.Password:
+0x00000b90 14 str.Good_password
+0x00000b9e 13 str.Bad_password
+[0x000008a0]> 
+
+
+Ok, maintenant on va aller voir la partie du code qui utilise ces strings:
+
+
+[0x000008a0]> aa
+[x] Analyze all flags starting with sym. and entry0 (aa)
+[0x000008a0]> axt str.Password:
+sym.systemo 0xa0a [data] lea rsi, str.Password:
+
+
+On voit donc que str.Password: est utilisé en 0xa0a, on regarde là bas:
+
+
+[0x000008a0]> pd 20 @ 0xa0a
+|           0x00000a0a      488d35740100.  lea rsi, str.Password:      ; 0xb85 ; "Password: "
+|           0x00000a11      488d3d681720.  lea rdi, obj.std::cout      ; 0x202180
+|           0x00000a18      e843feffff     call sym.std::basic_ostream_char_std::char_traits_char___std::operator___std::char_traits_char___std::basic_ostream_char_std::char_traits_char____charconst
+|           0x00000a1d      488d45f0       lea rax, [local_10h]
+|           0x00000a21      4889c6         mov rsi, rax
+|           0x00000a24      488d3d351620.  lea rdi, sym.std::cin       ; obj.std::cin ; 0x202060
+|           0x00000a2b      e840feffff     call sym.std::istream::operator___int
+|           0x00000a30      8b45f0         mov eax, dword [local_10h]
+|           0x00000a33      3b45f4         cmp eax, dword [local_ch]
+|       ,=< 0x00000a36      752a           jne 0xa62
+|       |   0x00000a38      488d35510100.  lea rsi, str.Good_password  ; 0xb90 ; "Good password"
+|       |   0x00000a3f      488d3d3a1720.  lea rdi, obj.std::cout      ; 0x202180
+|       |   0x00000a46      e815feffff     call sym.std::basic_ostream_char_std::char_traits_char___std::operator___std::char_traits_char___std::basic_ostream_char_std::char_traits_char____charconst
+|       |   0x00000a4b      4889c2         mov rdx, rax
+|       |   0x00000a4e      488b05a31520.  mov rax, qword [method.std::basic_ostream_char_std::char_traits_char___std::endl_char_std.char_traits_char___std::basic_ostream_char_std::char_traits_char] ; [0x201ff8:8]=0
+|       |   0x00000a55      4889c6         mov rsi, rax
+|       |   0x00000a58      4889d7         mov rdi, rdx
+|       |   0x00000a5b      e820feffff     call sym.std::ostream::operator___std::ostream_____std::ostream
+|      ,==< 0x00000a60      eb28           jmp 0xa8a
+|      |`-> 0x00000a62      488d35350100.  lea rsi, str.Bad_password   ; 0xb9e ; "Bad password"
+
+
+Grace à vos yeux et votre femto-Encéphale à moitié endormi vous pouvez voir ce qui nous intéresse, une comparaison:
+
+
+|           0x00000a33      3b45f4         cmp eax, dword [local_ch]
+|       ,=< 0x00000a36      752a           jne 0xa62
+
+(en 0xa62 on a "Bad password")
+
+C'est evident, eax est comparé à dword [local_ch] et si ils ne sont pas égaux, on nous dit "Bad Password"
+
+Maintenant on quitte radare2 pour lancer gdb; puis on pose un breakpoint à l'adresse où on a la comparaison (à cette ligne: 0x00000a33   cmp eax, dword [local_ch]).
+
+On fait un b* 0xa33 puis run
+
+Mais ça nous sort une erreur: 
+
+Starting program: /home/solden/crackmes/crackMe1.bin 
+Warning:
+Cannot insert breakpoint 1.
+Cannot access memory at address 0xa33
+
+C'est chiant.
+On va quand même voir là bas avec gdb, on desassemble à 0xa0a (là où il y a str.Password: qui est utilisé)
+
+
+gdb-peda$ disas 0xa0a
+Dump of assembler code for function _Z7systemov:
+   0x00000000000009ec <+0>:	push   rbp
+   0x00000000000009ed <+1>:	mov    rbp,rsp
+   0x00000000000009f0 <+4>:	sub    rsp,0x10
+   0x00000000000009f4 <+8>:	mov    eax,DWORD PTR [rbp-0x8]
+   0x00000000000009f7 <+11>:	add    DWORD PTR [rbp-0x4],eax
+   0x00000000000009fa <+14>:	mov    eax,DWORD PTR [rbp-0x4]
+   0x00000000000009fd <+17>:	imul   eax,eax,0x2d
+   0x0000000000000a00 <+20>:	mov    DWORD PTR [rbp-0xc],eax
+   0x0000000000000a03 <+23>:	mov    DWORD PTR [rbp-0x10],0x0
+   0x0000000000000a0a <+30>:	lea    rsi,[rip+0x174]        # 0xb85
+   0x0000000000000a11 <+37>:	lea    rdi,[rip+0x201768]        # 0x202180 <_ZSt4cout@@GLIBCXX_3.4>
+   0x0000000000000a18 <+44>:	call   0x860 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc@plt>
+   0x0000000000000a1d <+49>:	lea    rax,[rbp-0x10]
+   0x0000000000000a21 <+53>:	mov    rsi,rax
+   0x0000000000000a24 <+56>:	lea    rdi,[rip+0x201635]        # 0x202060 <_ZSt3cin@@GLIBCXX_3.4>
+   0x0000000000000a2b <+63>:	call   0x870 <_ZNSirsERi@plt>
+   0x0000000000000a30 <+68>:	mov    eax,DWORD PTR [rbp-0x10]
+   0x0000000000000a33 <+71>:	cmp    eax,DWORD PTR [rbp-0xc]
+   0x0000000000000a36 <+74>:	jne    0xa62 <_Z7systemov+118>
+   0x0000000000000a38 <+76>:	lea    rsi,[rip+0x151]        # 0xb90
+   0x0000000000000a3f <+83>:	lea    rdi,[rip+0x20173a]        # 0x202180 <_ZSt4cout@@GLIBCXX_3.4>
+   0x0000000000000a46 <+90>:	call   0x860 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc@plt>
+   0x0000000000000a4b <+95>:	mov    rdx,rax
+   0x0000000000000a4e <+98>:	mov    rax,QWORD PTR [rip+0x2015a3]        # 0x201ff8
+   0x0000000000000a55 <+105>:	mov    rsi,rax
+   0x0000000000000a58 <+108>:	mov    rdi,rdx
+   0x0000000000000a5b <+111>:	call   0x880 <_ZNSolsEPFRSoS_E@plt>
+   0x0000000000000a60 <+116>:	jmp    0xa8a <_Z7systemov+158>
+   0x0000000000000a62 <+118>:	lea    rsi,[rip+0x135]        # 0xb9e
+   0x0000000000000a69 <+125>:	lea    rdi,[rip+0x201710]        # 0x202180 <_ZSt4cout@@GLIBCXX_3.4>
+   0x0000000000000a70 <+132>:	call   0x860 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc@plt>
+   0x0000000000000a75 <+137>:	mov    rdx,rax
+   0x0000000000000a78 <+140>:	mov    rax,QWORD PTR [rip+0x201579]        # 0x201ff8
+   0x0000000000000a7f <+147>:	mov    rsi,rax
+   0x0000000000000a82 <+150>:	mov    rdi,rdx
+   0x0000000000000a85 <+153>:	call   0x880 <_ZNSolsEPFRSoS_E@plt>
+   0x0000000000000a8a <+158>:	nop
+   0x0000000000000a8b <+159>:	leave  
+   0x0000000000000a8c <+160>:	ret    
+End of assembler dump.
+
+
+Notre morceau de code intéressant se situe donc dans une fonction ("Dump of assembler code for function _Z7systemov:") nommée (je viens de le dire -.-) _Z7systemov
+Il se situe précisement en _Z7systemov+71 ("0x0000000000000a33 <+71>"). C'est donc ici qu'on va poser un autre breakpoint.
+
+gdb-peda$ b* _Z7systemov+71
+Breakpoint 1 at 0xa33
+
+On re-run (r dans gdb) et nous demande bien un password !
+Entrez un truc au pif (moi j'ai mit "fueiqskdghjf")
+
+On atterit bien sur notre cmp eax,DWORD PTR [rbp-0xc]
+Dans eax on voit qu'on a 0, faut fouiller dans [rbp-0xc]: 
+
+gdb-peda$ print $rbp-0xc
+$1 = (void *) 0x7fffffffdd24
+
+Le pass est à l'adresse 0x7fffffffdd24
+On regarde dedans:
+
+gdb-peda$ x/xw 0x7fffffffdd24
+0x7fffffffdd24:	0x0000021c
+
+on trouve 0x21c, ce qui donne 540 en décimal.
+
+Soyons fous: quittons gdb et lançons le crackme sans debugger
+
+On nous demande notre password et on entre 540
+
+BINGO !
+
+Password: 540
+Good password
+
+Et voilà ! J'essaierai demain Sh4ll2 et ecrirai un write up.
+Merci à destructeur pour ce petit crackme basique.
+
+Mon mail si vous voulez me remercier, m'insulter, me conseiller ou corriger des trucs ou encore me raconter votre vie: S01den@protonmail.com

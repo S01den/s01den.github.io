@@ -1,0 +1,191 @@
+ ______________________________________________
+[                                              ]
+[   WRITE UP DU CRACKME "Sh4ll3" DE            ]
+[            destructeur	               ]
+[                                              ]
+[     PAR S01den                               ]
+[                                              ]
+[_________________________________19/05/2018___]
+
+
+
+
+Comme promis hier, on se retrouve aujourd'hui pour Sh4ll3 (et ouais, j'ai sauté le 2 O_O ); voici donc mon 3ème writeUp
+
+
+Alors pour le matos (comme la dernière fois):
+
+	- Radare2 (très utile)
+	- Gdb avec peda (très utile aussi)
+	- un cerveau 
+	- de la musique (comme d'hab)
+
+on commence !
+
+Vous avez l'habitude depuis la dernière fois, on commence par se renseigner sur le crackme grace à la commande "file", ce qui nous donne:
+
+
+file crackMe3.bin 
+crackMe3.bin: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=fd8d4c981db6fafcaeabe60793bac3bb2255988c, not stripped
+
+
+Ok, c'est un ELF compilé en 64-bit.
+
+Maintenant on ouvre radare2:
+
+
+r2 crackMe3.bin 
+ -- All your base are belong to r2
+[0x00000ff0]>
+
+Regardons les strings (si vous avez lu mon précédent writeUp et que vous avez un peu de mémoire, c'est la même chose que la dernière fois):
+
+
+[0x00000ff0]> fs strings 
+[0x00000ff0]> f
+0x00001959 23 str.You_should_be_focused
+0x00001970 38 str.Incorrect_password__ganbatte_kudasai
+0x00001996 26 str.Your_password_is_correct
+0x000019b0 11 str.zg2z8h4z2z
+0x000019bb 17 str.S5do7apOWcl__clx
+0x000019cc 11 str.Password:
+
+
+Ok, maintenant on va aller voir la partie du code qui utilise ces strings:
+
+
+[0x00000ff0]> aa
+[x] Analyze all flags starting with sym. and entry0 (aa)
+[0x00000ff0]> axt str.Your_password_is_correct 
+sym.main 0x12bc [data] lea rsi, str.Your_password_is_correct
+
+
+str.Your_password_is_correct est utilisé en 0x12bc,on regarde par là:
+
+
+[0x00000ff0]> pd 40 @ 0x000012bc
+|           0x000012bc      488d35d30600.  lea rsi, str.Your_password_is_correct ; 0x1996 ; "Your password is correct!"
+|           0x000012c3      4889c7         mov rdi, rax
+|           0x000012c6      e8c5fcffff     call sym.std::__cxx11::basic_string_char_std::char_traits_char__std::allocator_char__::basic_string_charconst__std::allocator_char_const
+|           0x000012cb      488d85edfeff.  lea rax, [local_113h]
+|           0x000012d2      4889c7         mov rdi, rax
+|           0x000012d5      e846fcffff     call sym.std::allocator_char_::_allocator
+|           0x000012da      488d85eefeff.  lea rax, [local_112h]
+|           0x000012e1      4889c7         mov rdi, rax
+|           0x000012e4      e8b7fcffff     call sym.std::allocator_char_::allocator
+|           0x000012e9      488d95eefeff.  lea rdx, [local_112h]
+|           0x000012f0      488d8580feff.  lea rax, [local_180h]
+|           0x000012f7      488d35b20600.  lea rsi, str.zg2z8h4z2z     ; 0x19b0 ; "zg2z8h4z2z"
+|           0x000012fe      4889c7         mov rdi, rax
+|           0x00001301      e88afcffff     call sym.std::__cxx11::basic_string_char_std::char_traits_char__std::allocator_char__::basic_string_charconst__std::allocator_char_const
+|           0x00001306      488d85eefeff.  lea rax, [local_112h]
+|           0x0000130d      4889c7         mov rdi, rax
+|           0x00001310      e80bfcffff     call sym.std::allocator_char_::_allocator
+|           0x00001315      488d85effeff.  lea rax, [local_111h]
+|           0x0000131c      4889c7         mov rdi, rax
+|           0x0000131f      e87cfcffff     call sym.std::allocator_char_::allocator
+|           0x00001324      488d95effeff.  lea rdx, [local_111h]
+|           0x0000132b      488d8560feff.  lea rax, [local_1a0h]
+|           0x00001332      488d35820600.  lea rsi, str.S5do7apOWcl__clx ; 0x19bb ; "S5do7apOWcl``clx"
+|           0x00001339      4889c7         mov rdi, rax
+|           0x0000133c      e84ffcffff     call sym.std::__cxx11::basic_string_char_std::char_traits_char__std::allocator_char__::basic_string_charconst__std::allocator_char_const
+|           0x00001341      488d85effeff.  lea rax, [local_111h]
+|           0x00001348      4889c7         mov rdi, rax
+|           0x0000134b      e8d0fbffff     call sym.std::allocator_char_::_allocator
+|           0x00001350      488d8540feff.  lea rax, [local_1c0h]
+|           0x00001357      4889c7         mov rdi, rax
+|           0x0000135a      e891fbffff     call sym.std::__cxx11::basic_string_char_std::char_traits_char__std::allocator_char__::basic_string
+|           0x0000135f      488d35660600.  lea rsi, str.Password:      ; 0x19cc ; "Password: "
+|           0x00001366      488d3d930e20.  lea rdi, obj.std::cout      ; 0x202200
+|           0x0000136d      e86efbffff     call sym.std::basic_ostream_char_std::char_traits_char___std::operator___std::char_traits_char___std::basic_ostream_char_std::char_traits_char____charconst
+|           0x00001372      488d8540feff.  lea rax, [local_1c0h]
+|           0x00001379      4889c6         mov rsi, rax
+|           0x0000137c      488d3d5d0d20.  lea rdi, sym.std::cin       ; obj.std::cin ; 0x2020e0
+|           0x00001383      e8e8fbffff     call sym.std::basic_istream_char_std::char_traits_char___std::operator___char_std::char_traits_char__std::allocator_char___std::basic_istream_char_std::char_traits_char____std::__cxx11::basic_string_char_std::char_traits_char__std::allocator_char
+|           0x00001388      488d9580feff.  lea rdx, [local_180h]
+|           0x0000138f      488d85f0feff.  lea rax, [local_110h]
+
+
+Ah, nous voyons en 0x0000137c un std::cin (ce qui nous indique aussi que le crackme a été écrit en C++)
+
+std::cin c'est l'instruction qui va nous faire entrer un mot de passe; on va poser un breakpoint dessus dans gdb et executer le programme instruction
+par instruction. On quitte radare2 et on lance le crackme avec gdb puis on pose un breakpoint en 0x137c (main+292):
+
+
+gdb-peda$ b* main+292
+Breakpoint 1 at 0x137c
+
+on lance en faisant r
+
+Comme prévu, on s'arrête bien sur "0x55555555537c <main+292>:	lea    rdi,[rip+0x200d5d]" (vous vous demandez pourquoi y a plein de 5 dans l'adresse quand on execute le prog ? Moi aussi ! Si t'as la réponse, je serais content que tu m'envoie un mail pour m'expliquer)
+
+On passe à l'instruction suivante: ni
+On tombe sur le call
+
+ni
+
+On nous demande le password, on entre A
+
+On atterit sur "0x555555555388 <main+304>:	lea    rdx,[rbp-0x180]"
+
+On continue ni jusqu'à 0x555555555528, où l'on voit:
+
+''''
+=> 0x555555555528 <main+720>:	call   0x55555555583f <_ZSteqIcEN9__gnu_cxx11__enable_ifIXsrSt9__is_charIT_E7__valueEbE6__typeERKNSt7__cxx1112basic_stringIS3_St11char_traitsIS3_ESaIS3_EEESE_>
+   0x55555555552d <main+725>:	test   al,al
+   0x55555555552f <main+727>:	je     0x55555555555e <main+774>
+''''
+
+Un test puis un saut conditionnel ? Intéressant, regardons de plus près la routine appellée par le call, on va poser un breakpoint dessus: 
+b* _ZSteqIcEN9__gnu_cxx11__enable_ifIXsrSt9__is_charIT_E7__valueEbE6__typeERKNSt7__cxx1112basic_stringIS3_St11char_traitsIS3_ESaIS3_EEESE_+0
+
+
+On relance le prog avec r, on fait c, on entre A comme password et on atterit dans notre routine.
+On voit: RDX: 0x7fffffffdba0 --> 0x555555768c80 ("S5do7apOWcl``clx")
+intéressant, cette chaine de caractères sera surrement utile.
+
+
+On fait ni jusqu'en _ZSteqIcEN9__gnu_cxx11__enable_ifIXsrSt9__is_charIT_E7__valueEbE6__typeERKNSt7__cxx1112basic_stringIS3_St11char_traitsIS3_ESaIS3_EEESE_+46 où il y a: cmp    rbx,rax
+
+
+et y a quoi dans rbx ? 0x1, donc 1 en décimal (faut pas être trop con); 0x1 comme la taille de la chaine de caractère qu'on a entré comme pass; et dans rax ? 0x10, 16 en décimal, 16 comme quoi ?
+Comme la longueur de (inserer blague de mauvais gout ici) S5do7apOWcl``clx
+
+
+on fait ni: 0x0000555555555870 <+49>:	jne    0x5555555558b5 <_ZSteqIcEN9__gnu_cxx11__enable_ifIXsrSt9__is_charIT_E7__valueEbE6__typeERKNSt7__cxx1112basic_stringIS3_St11char_traitsIS3_ESaIS3_EEESE_+118>
+
+
+Puis ni, et on se retrouve en _ZSteqIcEN9__gnu_cxx11__enable_ifIXsrSt9__is_charIT_E7__valueEbE6__typeERKNSt7__cxx1112basic_stringIS3_St11char_traitsIS3_ESaIS3_EEESE_+118 ce qui est logique car 1 != 16
+
+On va tester en relancant le prog et en mettant AAAAAAAAAAAAAAAA (16*A) comme pass.
+
+Cette fois on a 0x514543135c574051 dans rax (0x0 la dernière fois).
+
+Arrivé sur le cmp rbx, rax on a bien rax = 0x10 (16) et rbx = 0x10 (16 aussi), on ne saute donc pas !
+On continue de faire ni jusqu'à 0x00005555555558a5 <+102>:	call   0x555555555804 <_ZNSt11char_traitsIcE7compareEPKcS2_m>
+car on a un test eax, eax puis un jne en dessous
+
+et grace à Peda, on voit:
+
+Guessed arguments:
+arg[0]: 0x555555769620 --> 0x514543135c574051 
+arg[1]: 0x555555768c80 ("S5do7apOWcl``clx")
+
+OK alors réfléchissons, notre chaine de 16 A est transformée en 0x514543135c574051; et c'est ce nombre qui est comparé à S5do7apOWcl``clx.
+Relançons le programme avec S5do7apOWcl``clx comme pass.
+
+Dès qu'on arrive dans_ZSteqIcEN9__gnu_cxx11__enable_ifIXsrSt9__is_charIT_E7__valueEbE6__typeERKNSt7__cxx1112basic_stringIS3_St11char_traitsIS3_ESaIS3_EEESE_ on voit RAX: 0x7fffffffdb20 --> 0x555555769620 ("C4rrect_P4ssw0rd")
+
+On quitte tout (non n'eteignez pas votre PC !!) et on lance le crackme en dehors de gdb, en entrant C4rrect_P4ssw0rd comme pass:
+
+Password: C4rrect_P4ssw0rd
+Your password is correct!
+
+C'est bon, on a bien le bon pass ;)
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Merci à destructeur pour ce crackme.
+
+Tu t'ennuies ? Compte le nombre de fois que j'ai écrit mot "on" dans cet article !
+
+Mon mail si vous voulez me remercier, m'insulter, me conseiller, me corriger des trucs ou encore me raconter votre vie voire m'envoyer des lettres d'amour: S01den@protonmail.com

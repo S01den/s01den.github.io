@@ -1,0 +1,90 @@
+ ______________________________________________
+[                                              ]
+[   WRITE UP DU CRACKME "pix_clickme" DE       ]
+[            bagolymadar                       ]
+[                                              ]
+[     PAR S01den                               ]
+[                                              ]
+[                                              ]
+[_________________________________03/08/2018___]
+
+
+
+Yo, voici le write up pour le nouveau crackme sur crackmes.one que vous pouvez trouver ici: https://crackmes.one/crackme/5b5f7f5433c5d46b771434ea
+
+--------------------------------------------------------------------------------------
+
+Author:
+bagolymadar
+
+Language:
+C/C++
+
+Upload:
+9:12 PM 07/30/2018
+
+Level:
+3
+
+Platform
+Windows
+
+Description
+
+In this crackme you don't need to reverse an algorithm and generate keys, but something else.
+
+You can exit with ESC.
+
+--------------------------------------------------------------------------------------
+
+
+Ok, on télécharge le crackme et on le lance avec ollydbg.
+
+F9 et on tombe sur une image. C'est un crackme original, pour une fois il n'y a aucun texte à entrer.
+
+Clic droit -> Search for -> All referenced text strings
+
+On double clic sur la string "Congratulation!"
+
+On tombe sur ça:
+
+
+00E918A5  |> 6A 40          PUSH 40                                  ; /Style = MB_OK|MB_ICONASTERISK|MB_APPLMODAL; Case 46F (WM_USER+6F) of switch 00E9101F
+00E918A7  |. 68 B031E900    PUSH pix_clic.00E931B0                   ; |Title = "Congratulations!"
+00E918AC  |. 68 C431E900    PUSH pix_clic.00E931C4                   ; |Text = "You won!
+Thank you for playing!"
+00E918B1  |. 57             PUSH EDI                                 ; |hOwner
+00E918B2  |. FF15 7C30E900  CALL DWORD PTR DS:[<&USER32.MessageBoxA>>; \MessageBoxA
+00E918B8  |. 6A 00          PUSH 0                                   ; /lParam = 0
+00E918BA  |. 6A 00          PUSH 0                                   ; |wParam = 0
+00E918BC  |. 6A 10          PUSH 10                                  ; |Message = WM_CLOSE
+00E918BE  |. 57             PUSH EDI                                 ; |hWnd
+00E918BF  |. FF15 7830E900  CALL DWORD PTR DS:[<&USER32.SendMessageA>; \SendMessageA
+00E918C5  |. E9 29020000    JMP pix_clic.00E91AF3
+00E918CA  |> 8B45 14        MOV EAX,DWORD PTR SS:[EBP+14]            ;  Case 201 (WM_LBUTTONDOWN) of switch 00E9101F
+
+
+"Case 46F" hum intéressant. En dessous nous avons "Case 201 (WM_LBUTTONDOWN) of switch 00E9101F"
+
+Regardons du coté du switch, en 00E9101F.
+
+Il y a beaucoup de "WM_" mais qu'est ce que ça signifie ?
+
+Après une rapide recherche, on trouve que ça signifie "Window Message".
+
+D'après "Case 46F (WM_USER+6F) of switch 00E9101F" il faut envoyer le message 0x46F au crackme.
+
+Après d'autres recherche, j'ai trouvé qu'on pouvait envoyer des "Window Message" grace à un script en autohotkey.
+
+en effet, avec la commande SendMessage c'est possible.
+
+On télécharge autohotkey et on créé un script, la commande à écrire est: SendMessage, 0x46F,,,, ahk_pid "PID du processus"
+
+On execute le script et on a une jolie messageBox "Congratulation! You won ! Thank you for playing!"
+
+
+FLAG !
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Et voilà, c'était un crackme très fun ! Si tu veux me dire ce que tu en penses, m'insulter ou corriger des trucs, tu peux me contacter par mail à S01den@protonmail.com

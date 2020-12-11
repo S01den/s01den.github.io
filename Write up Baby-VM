@@ -1,0 +1,193 @@
+-------------------------------------
+| Write up Baby-VM                  |
+| By S01den (S01den@protonmail.com) |
+| 10/02/2019                        |
+-------------------------------------
+
+Hey hey, voici le write-up du challenge de reversing "Baby-VM", présent au HackSecuReims de cette année.
+Ce crackme présente une très simple virtualisation de code, une VM parfaite pour s'essayer à ce type de protection lorsque l'on débute.
+Pour obtenir le sacro-saint flag, nous aurons besoins de:
+- Ghidra
+- Savoir programmer en python
+- Un cerveau
+Avant tout, il faut savoir à quel type de binaire nous avons affaire, pour cela nous executons la commande:
+
+solden@solden-X550JX:~/Downloads$ file baby_VM 
+baby_VM: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, stripped
+
+Nous sommes donc face à un ELF 64 bit strippé.
+Ok.
+Qu'est ce qu'il veut au juste ?
+
+solden@solden-X550JX:~/Downloads$ ./baby_VM 
+Usage: ./baby_VM <password>
+solden@solden-X550JX:~/Downloads$ ./baby_VM AAAA
+No.
+
+Bon.
+On balance ça dans ghidra pour voir, on obtient direct notre pseudo-code. Avec un peu de reflexion, on peut aisemment nommer les différentes variables utilisées.
+Voici donc la fonction principale du crackme, le coeur de la VM:
+
+----------------------------------------------------------------------------------------------------
+
+undefined8 VM_CORE(long instructions,ulong len,long password)
+
+{
+  undefined8 uVar1;
+  long in_FS_OFFSET;
+  ulong pc;
+  uint local_28;
+  uint local_24;
+  uint local_20;
+  uint local_1c;
+  long passwordLong;
+  long local_10;
+  
+  local_10 = *(long *)(in_FS_OFFSET + 0x28);
+  pc = 0;
+  memset(&local_28,0,0x18);
+  do {
+    passwordLong = password;
+    if (len <= pc) {
+      uVar1 = 0;
+      return uVar1;
+    }
+    switch(*(byte *)(pc + instructions)) {
+    case 0xa1:
+      local_20 = local_1c ^ local_20;
+      pc = pc + 1;
+      break;
+    case 0xa2:
+      local_24 = local_20 ^ local_24;
+      pc = pc + 1;
+      break;
+    case 0xa3:
+      local_28 = local_24 ^ local_28;
+      pc = pc + 1;
+      break;
+    default:
+      printf("! Unknow inst: 0x%02x (pc: 0x%02x)\n",(ulong)*(byte *)(pc + instructions),pc);
+                    /* WARNING: Subroutine does not return */
+      exit(1);
+    case 0xb1:
+      local_1c = local_1c + 1;
+      pc = pc + 1;
+      break;
+    case 0xd3:
+      local_1c = 0;
+      pc = pc + 1;
+      break;
+    case 0xd4:
+      local_28 = SEXT14(*(char *)(password + (ulong)local_1c));
+      if (local_28 == 0) {
+        uVar1 = 1;
+      }
+      pc = pc + 1;
+      break;
+    case 0xde:
+      if (local_28 != local_24) {
+        uVar1 = 1;
+      }
+      pc = pc + 1;
+      break;
+    case 0xe7:
+      local_24 = (uint)*(byte *)(instructions + pc + 1);
+      pc = pc + 2;
+      break;
+    case 0xe8:
+      local_28 = (uint)*(byte *)(instructions + pc + 1);
+      pc = pc + 2;
+    }
+  } while( true );
+}
+
+-------------------------------------------- CUT HERE ! --------------------------------------------
+
+En sachant que cette fonction est appelée ainsi dans le main:
+
+iVar1 = VM_CORE(BYTE_ARRAY_00102168,0x169,param_2[1]);
+
+Les instructions de la VM sont donc les 0x169 octets présents à partir du byte_array_00102168.
+Il suffit maintenant de réécrire cela en python, tout en faisant afficher à l'écran les instructions executées:
+
+
+----------------------------------------------------------------------------------------------------
+
+lenVM = 0x169
+pc = 0
+passw = ""
+passwordLong = 0
+#password = "HSR{p1kaboo!U_kn0w_h0w_t0_count_instructi0ns}"
+c = 1
+r1 = 0 # local_1c
+r2 = 0 # local_20
+r3 = 0 # local_24
+r4 = 0 # local_28
+uVar1 = 1
+stck = 0
+
+instructions = [0xb1,0xd4,0xe7,0x52,0xa3,0xe7,0x33,0xde,0xb1,0xd4,0xe7,0xdf,0xa3,0xe7,0xbd,0xde,0xb1,0xd4,0xe7,0xb0,0xa3,0xe7,0xdf,0xde,0xb1,0xd4,0xe7,0x66,0xa3,0xe7,0x09,0xde,0xb1,0xd4,0xe7,0x61,0xa3,0xe7,0x40,0xde,0xb1,0xd4,0xe7,0x2d,0xa3,0xe7,0x78,0xde,0xb1,0xd4,0xe7,0xe3,0xa3,0xe7,0xbc,0xde,0xb1,0xd4,0xe7,0xa4,0xa3,0xe7,0xcf,0xde,0xb1,0xd4,0xe7,0x3e,0xa3,0xe7,0x50,0xde,0xb1,0xd4,0xe7,0x20,0xa3,0xe7,0x10,0xde,0xb1,0xd4,0xe7,0x8c,0xa3,0xe7,0xfb,0xde,0xb1,0xd4,0xe7,0x0d,0xa3,0xe7,0x52,0xde,0xb1,0xd4,0xe7,0x81,0xa3,0xe7,0xe9,0xde,0xb1,0xd4,0xe7,0xab,0xa3,0xe7,0x9b,0xde,0xb1,0xd4,0xe7,0x9c,0xa3,0xe7,0xeb,0xde,0xb1,0xd4,0xe7,0x12,0xa3,0xe7,0x4d,0xde,0xb1,0xd4,0xe7,0x6b,0xa3,0xe7,0x1f,0xde,0xb1,0xd4,0xe7,0xa5,0xa3,0xe7,0x95,0xde,0xb1,0xd4,0xe7,0x49,0xa3,0xe7,0x16,0xde,0xb1,0xd4,0xe7,0x8d,0xa3,0xe7,0xee,0xde,0xb1,0xd4,0xe7,0x39,0xa3,0xe7,0x56,0xde,0xb1,0xd4,0xe7,0xf1,0xa3,0xe7,0x84,0xde,0xb1,0xd4,0xe7,0xf7,0xa3,0xe7,0x99,0xde,0xb1,0xd4,0xe7,0x4d,0xa3,0xe7,0x39,0xde,0xb1,0xd4,0xe7,0x7e,0xa3,0xe7,0x21,0xde,0xb1,0xd4,0xe7,0x71,0xa3,0xe7,0x18,0xde,0xb1,0xd4,0xe7,0x17,0xa3,0xe7,0x79,0xde,0xb1,0xd4,0xe7,0x9d,0xa3,0xe7,0xee,0xde,0xb1,0xd4,0xe7,0x1f,0xa3,0xe7,0x6b,0xde,0xb1,0xd4,0xe7,0x46,0xa3,0xe7,0x34,0xde,0xb1,0xd4,0xe7,0xce,0xa3,0xe7,0xbb,0xde,0xb1,0xd4,0xe7,0xea,0xa3,0xe7,0x89,0xde,0xb1,0xd4,0xe7,0x17,0xa3,0xe7,0x63,0xde,0xb1,0xd4,0xe7,0x72,0xa3,0xe7,0x1b,0xde,0xb1,0xd4,0xe7,0xd6,0xa3,0xe7,0xe6,0xde,0xb1,0xd4,0xe7,0xf3,0xa3,0xe7,0x9d,0xde,0xb1,0xd4,0xe7,0xa2,0xa3,0xe7,0xd1,0xde,0xb1,0xd4,0xe7,0xf7,0xa3,0xe7,0x8a,0xde,0xb1,0x00,0x4e,0x6f,0x2e,0x00,0x59,0x65,0x73,0x2e,0x00,0x00,0x01,0x1b,0x03,0x3b]
+
+while c == 1:
+
+  if(lenVM <= pc):
+    c = 0
+
+  if(instructions[pc] == 0xa1):
+    print("r2 XOR r1 <=> "+str(hex(r2))+" XOR "+str(hex(r1))+" = "+str(hex(r2^r1)))
+    r2 ^= r1
+    pc += 1
+  elif(instructions[pc] == 0xa2):
+    print("r3 XOR r2 <=> "+str(hex(r3))+" XOR "+str(hex(r2))+" = "+str(hex(r3^r2)))
+    r3 ^= r2
+    pc += 1
+  elif(instructions[pc] == 0xa3):
+    print("r4 XOR r3 <=> "+str(hex(r4))+" XOR "+str(hex(r3))+" = "+str(hex(r4^r3)))
+    stck = r3
+    r4 ^= r3
+    pc += 1
+  elif(instructions[pc] == 0xb1):
+    r1 += 1
+    #print("r1++ <=> r1 = ",str(hex(r1)))
+    pc += 1
+  elif(instructions[pc] == 0xd3):
+    r1 = 0
+    #print("r1 = 0")
+    pc += 1
+  elif(instructions[pc] == 0xd4):
+    r4 = ord(password[r1])
+    print("r4 = password[r1] <=> r4 = "+password[r1]+" ("+str(hex(r4))+")")
+    if(r4 == 0):
+      uVar1 = 0
+    pc += 1
+  elif(instructions[pc] == 0xde):
+    print("CMP r4 != r3 <=> CMP "+str(hex(r4))+" != "+str(hex(r3)))
+    passw+=chr(r3^stck)
+    print("pass: "+str(chr(r3^stck)))
+    if(r4 != r3):
+      print("------> FAIL")
+      uVar1 = 1
+    else:
+      print("------> G00D")
+    pc += 1
+  elif(instructions[pc] == 0xe7):
+    r3 = instructions[pc+1]
+    #print("r3 = instructions[pc+1]")
+    pc += 2
+  elif(instructions[pc] == 0xe8):
+    r4 = instructions[pc+1]
+    #print("r4 = instructions[pc+1]")
+    pc += 2
+  else:
+    print("[!] Unknown instruction !")
+    print(passw)
+
+print(passw)
+
+-------------------------------------------- CUT HERE ! --------------------------------------------
+
+On remarque que les caractères de notre password sont xorés puis comparés, cela nous permet d'ajouter deux lignes nous permettant de calculer automatiquement le bon mot de passe:
+passw+=chr(r3^stck)
+print("pass: "+str(chr(r3^stck)))
+
+On execute et on obtient le flag: HSR{p1kaboo!U_kn0w_h0w_t0_count_instructi0ns} ainsi que les 225 points du challenge. First blood ;)

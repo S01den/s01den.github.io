@@ -1,0 +1,99 @@
+ ______________________________________________
+[                                              ]
+[   WRITE UP DU CRACKME "swing" DE             ]
+[            root             	               ]
+[                                              ]
+[     PAR S01den                               ]
+[                                              ]
+[                                              ]
+[_________________________________05/07/2018___]
+
+
+
+Plop, aujourd'hui j'ecris ce write up pour le crackme de root "swing"
+
+que vous pouvez trouver ici: https://crackmes.one/crackme/5acbb5ac33c5d42f34b180a1
+
+
+--------------------------------------------------------------------------------------
+Author:
+root
+
+Language:
+C/C++
+
+Upload:
+6:49 PM 04/09/2018  (WTF ? On est le 05/07/2018, c'est un crackme du futur :D )
+
+Level:
+2         (il est facile)
+
+Platform
+Windows
+
+Description
+
+start without cd     (comme ça, c'est clair)
+--------------------------------------------------------------------------------------
+
+
+Ok, on télécharge le crackme et on le lance.
+
+On obtient une message box "Attention: Unable to locate swing registry entries".
+
+Desassemblons ça avec ollydbg, et on execute avec F9.
+
+On arrive sur un PUSH EBP.
+
+
+D'ici, on execute le crackme instruction par instruction (F8).
+
+La message box apparait après le CALL 00411570 en 0042857F.
+
+On pose donc un breakpoint sur cette instruction et on relance le programme (CTRL + F2).
+
+On arrive sur notre breakpoint; on entre dans la routine appelée par le CALL, on fait donc F7
+
+
+En bas, en 00411612, on voit un PUSH 434104 avec 00434104=swing95.00434104 (ASCII "Unable to locate swing registry entries"), ce qui est le texte de la msgbox.
+
+Juste au dessus, il y a un TEST EAX,EAX suivi d'un JNZ SHORT 00411637; on en deduit donc que la msgbox avec "Unable to locate swing registry entries" apparait si EAX = 0 (*1)
+
+Ce qui est normalement le cas, c'est pour ça que la msgbox apparait quand on lance le programme.
+
+
+Pour voir comment le programme se déroule lorsque le saut est pris, on change la valeur de eax lorsque qu'on est à TEST EAX,EAX (on peut mettre n'importe quelle valeure entiere).
+
+Ok, alors le saut est prit, on arrive en 00411637 et 3 instructions plus tard on tombe sur un TEST EAX, EAX puis JE SHORT 00411671.
+
+Maintenant EAX vaut FFFFFFFF, donc avec le TEST, zf vaut 0, alors le saut n'est pas prit (c'est un JE cette fois, ZF doit être égal à 1) et on tombe sur une autre msgbox 
+
+avec pour texte "Unable to change to the swing directory".
+
+
+On met EAX à 0, le saut est effectué et on arrive sur une autre msgBox avec des boutons et un texte en allemand.
+
+Bingo, on a lancé le crackme sans CD.
+
+Maintenant il faut le patcher.
+
+
+Récapitulons: il faut que JNZ SHORT 00411637 saut tout le temps en 00411637, on va donc transformer le JNZ en JMP (saut inconditionnel, magique :o ); de plus il faut que EAX soit
+
+egal à 0 au TEST EAX, EAX en 00411644 pour sauter avec le JE juste après. Pour mettre EAX à 0, on remplace le TEST EAX, EAX par XOR EAX, EAX (1 xor 1 = 0). Le ZF sera mit à 1 
+
+(les opérandes sont égaux).
+
+Clic droit -> view -> executable file  et on obtient les OPCODE des instructions et les OFFSET auquels ils sont placés. 
+
+On ouvre un editeur hexadecimal et on remplace le 75 (JNZ) par un EB (JMP) en 11610 et le 85 (TEST) en 11644 par un 31 (XOR).
+ 
+PATCHED ! :D
+
+
+*1 
+TEST EAX, EAX met le ZF (zero flag) à 1 si EAX vaut 0. Puis JNZ 00411637 saute à 00411637 si le ZF vaut 0 or ce n'est normalement pas le cas (EAX vaut 0 normalement,
+donc TEST EAX, EAX fonctionne et le ZF vaut 1 donc JNZ n'est pas pris en compte, on ne saute pas et on tombe sur la msgbox avec "Unable to locate swing registry entries")
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Et voilà ! Si tu veux me dire ce que tu en penses, m'insulter ou corriger des trucs, tu peux me contacter par mail à S01den@protonmail.com
