@@ -1,0 +1,88 @@
++-----------------------------------------------------------------+
+|::::::::::| A short note on Crashing UPX for BGGP #3! |::::::::::|
++-----------------------------------------------------------------+
+
+by s01den. (@s01den | s01den@protonmail.com)
+
+----------------------------------------------------
+This years Binary Golf Grand Prix edition is really interesting.
+The objective is to find the smallest file to crash a software,
+but to make it more spicy, there are obviously bonus points:
+
+    +1024 pts, if you submit a writeup about your process and details about the crash
+    +1024 pts, if the program counter is all 3’s when the program crashes
+    +2048 pts, if you hijack execution and print or return “3”
+    +4096 pts, if you author a patch for your bug which is merged before the end of the competition
+
+After looking for a software to crash for a really long time,
+I finally wanted to crash upx. I orignially found a crash on hp2xx,
+a GNU software that isn't updated since almost 20 years, and the crash
+wasn't really interesting.
+
+-----------> Fuzzing
+
+Soooo, I started by fuzzing it with AFL.
+I used two kind of samples: PE and ELF. I found them in the
+radare2 test-bins (https://github.com/radareorg/radare2-testbins) (really useful corpus!)
+I wanted to make upx crash when packing or when unpacking (with '-d' option).
+I finally found crashes for those 2 modes.
+After 3 hours of fuzzing, I had 6 differents files crashing upx.
+I first take a look at the smallest: it was a PE file of 1536 bytes. 
+The others were above 4096 (ELF & PE).
+After digging in the source code of upx, I found that it couldn't handle files with a
+size below 512 bytes.
+
+-----------> Minimizing
+
+I tried to remove useless bytes in the crashing file by reducing it this way:
+
+# head -c nbrOfBytes crash_segfault_isectionName.exe > test_crash.exe
+
+Upx crashed with the first 518 bytes of the original crash file, not least.
+
+[solden@solden ~]$ upx test_crash.exe 
+                       Ultimate Packer for eXecutables
+                          Copyright (C) 1996 - 2020
+UPX git-d7ba31+ Markus Oberhumer, Laszlo Molnar & John Reiser   Jan 23rd 2020
+
+        File size         Ratio      Format      Name
+   --------------------   ------   -----------   -----------
+Erreur de segmentation (core dumped)
+
+
+-----------> Debugging
+
+By debugging upx, I used gdb. I found that the crash was trigger in pefile.cpp,
+in the function PeFile::checkHeaderValues(unsigned subsystem, unsigned mask, unsigned ih_entry, unsigned ih_filealign)
+The faulting line was the 2169:  
+if (memcmp(isection[0].name,"UPX",3) == 0)
+        throwAlreadyPackedByUPX();
+
+isection was NULL so it caused a null ptr dereference. 
+
+The function was called after readSectionHeaders(), which let isection NULL if it
+doesn't find any section, and the case of a PE containing 0 section wasn't covered.
+I assumed that the crash could be caused by a modification of only one byte in any
+PE file: put 0 in NumberOfSections in the IMAGE_FILE_HEADER.
+This entry was NULL in my crash sample.
+Bingo! To trigger the bug, just have to NULL this entry in any PE file!
+
+-----------> Fixing the crash
+
+Ezpz: just check if isection is NULL or not before trying to access it:
+
+    if(isection == NULL)
+        throwCantPack("No section was found");
+
+    if (memcmp(isection[0].name,"UPX",3) == 0)
+        throwAlreadyPackedByUPX();
+
+The patch was merged a couple of hours later!
+-> https://github.com/upx/upx/commit/e95a82e390b5b1b9d20d65ed6d2297f47048a9d8
+
+------------> Score
+
+    +4096 - 518
+    +1024 writeup
+    +4096 patches merged
+Total: 8698
